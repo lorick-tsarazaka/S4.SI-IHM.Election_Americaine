@@ -90,6 +90,9 @@ class VotesController
         $this->app->db()->beginTransaction();
 
         try {
+            $currentUserId = (int) ($_SESSION['utilisateur']['id'] ?? 0);
+            $currentUsername = (string) ($_SESSION['utilisateur']['nom_utilisateur'] ?? 'inconnu');
+
             foreach ($voixParCandidat as $candidatId => $nombreVoix) {
                 $candidatId = (int) $candidatId;
                 $nombreVoix = (int) $nombreVoix;
@@ -102,7 +105,7 @@ class VotesController
                 $this->votesRepository->addHistoriqueModification($etatId, $candidatId, $ancienneValeur, $nombreVoix);
             }
 
-            $this->votesRepository->updateEtatWinner($etatId);
+            $this->votesRepository->updateEtatWinnerWithAudit($etatId, $currentUserId, $currentUsername, 'update');
 
             $this->app->db()->commit();
             Flight::redirect('/saisie_votes?message=Vote+enregistre');
@@ -277,5 +280,106 @@ class VotesController
             'totaux' => $totaux,
             'csp_nonce' => Flight::get('csp_nonce'),
         ]);
+    }
+
+    public function auditResultatsEtat(): void
+    {
+        if (!$this->requireRole('admin')) {
+            return;
+        }
+
+        $etatId = (int) (Flight::request()->query->etat_id ?? 0);
+        $etatFilter = $etatId > 0 ? $etatId : null;
+
+        $etats = $this->votesRepository->getEtats();
+        $historique = $this->votesRepository->getHistoriqueResultatsEtat($etatFilter);
+
+        Flight::render('audit_resultats_etat', [
+            'etats' => $etats,
+            'historique' => $historique,
+            'etatSelectionne' => $etatId,
+            'message' => Flight::request()->query->message,
+            'csp_nonce' => Flight::get('csp_nonce'),
+        ]);
+    }
+
+    public function rollbackResultatEtat(): void
+    {
+        if (!$this->requireRole('admin')) {
+            return;
+        }
+
+        $historiqueId = (int) (Flight::request()->data->historique_id ?? 0);
+        if ($historiqueId <= 0) {
+            Flight::redirect('/audit_resultats_etat?message=Historique+invalide');
+            return;
+        }
+
+        $currentUserId = (int) ($_SESSION['utilisateur']['id'] ?? 0);
+        $currentUsername = (string) ($_SESSION['utilisateur']['nom_utilisateur'] ?? 'inconnu');
+
+        $this->app->db()->beginTransaction();
+        try {
+            $ok = $this->votesRepository->rollbackHistoriqueResultatEtat($historiqueId, $currentUserId, $currentUsername);
+            if (!$ok) {
+                $this->app->db()->rollBack();
+                Flight::redirect('/audit_resultats_etat?message=Historique+introuvable');
+                return;
+            }
+
+            $this->app->db()->commit();
+            Flight::redirect('/audit_resultats_etat?message=Rollback+effectue');
+        } catch (Throwable $e) {
+            if ($this->app->db()->inTransaction()) {
+                $this->app->db()->rollBack();
+            }
+
+            error_log('RollbackResultatEtat Error: ' . $e->getMessage());
+            Flight::redirect('/audit_resultats_etat?message=Erreur+lors+du+rollback');
+        }
+    }
+
+    public function exportHistoriqueResultatsEtatCsv(): void
+    {
+        if (!$this->requireRole('admin')) {
+            return;
+        }
+
+        $etatId = (int) (Flight::request()->query->etat_id ?? 0);
+        $etatFilter = $etatId > 0 ? $etatId : null;
+        $historique = $this->votesRepository->getHistoriqueResultatsEtat($etatFilter);
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="audit_resultats_etat.csv"');
+
+        $output = fopen('php://output', 'w');
+        if ($output === false) {
+            return;
+        }
+
+        fputcsv($output, [
+            'id',
+            'etat',
+            'ancienne_valeur',
+            'nouvelle_valeur',
+            'modifie_par',
+            'action',
+            'date_modification',
+        ]);
+
+        foreach ($historique as $ligne) {
+            fputcsv($output, [
+                (int) $ligne['id'],
+                (string) $ligne['etat_nom'],
+                (string) ($ligne['ancien_candidat_nom'] ?? 'Aucun'),
+                (string) ($ligne['nouveau_candidat_nom'] ?? 'Aucun'),
+                (string) ($ligne['modifie_par_nom_utilisateur'] ?? 'inconnu'),
+                (string) $ligne['action_type'],
+                (string) $ligne['date_modification'],
+            ]);
+        }
+
+        fclose($output);
+        exit;
     }
 }
