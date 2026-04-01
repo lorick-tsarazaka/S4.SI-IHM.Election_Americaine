@@ -36,6 +36,11 @@
                                 <i class="bi bi-pencil-square me-1"></i> Saisie votes
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark px-3 <?= $currentPage === 'Historique resultats etat' ? 'active' : '' ?>" href="<?= $base ?>/audit_resultats_etat">
+                                <i class="bi bi-clock-history me-1"></i> Historique
+                            </a>
+                        </li>
                     <?php endif; ?>
                     <?php if ($isAuthenticated): ?>
                         <li class="nav-item">
