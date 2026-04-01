@@ -68,7 +68,7 @@
 		'database' => [
 			// MySQL Example:
 			'host'     => 'localhost:3306',
-			'dbname'   => 'final_exam_s3',
+			'dbname'   => 'election_db',
 			'user'     => 'root',
 			'password' => '',
 			

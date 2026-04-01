@@ -1,13 +1,7 @@
 <?php
 
 use app\controllers\MainController;
-use app\controllers\TableauBordController;
-use app\controllers\DistributionController;
-use app\controllers\BesoinController;
-use app\controllers\CollecteController;
-use app\controllers\SimulationController;
-use app\controllers\RecapitulationController;
-use app\controllers\AchatsController;
+use app\controllers\VotesController;
 use app\middlewares\SecurityHeadersMiddleware;
 use flight\Engine;
 use flight\net\Router;
@@ -20,97 +14,67 @@ $router->group('', function(Router $router) use ($app) {
     });
 }, [ SecurityHeadersMiddleware::class ]);
 
-//  Tableau de bord Routes
 $router->group('', function(Router $router) use ($app) {
 
-    //  Register
-    $router->get('/tableauBord', function() use ($app) {
-        $controller = new TableauBordController($app);
-        $controller->showTableauBord();
+    // Saisie et affichage des votes
+    $router->get('/saisie_votes', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->saisieVotes();
     });
 
-
-    // Saisie Distribution
-    $router->get('/distribution/saisie', function() use ($app) {
-        $controller = new DistributionController($app);
-        $controller->saisieDistribution();
+    $router->get('/saisie_votes.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->saisieVotes();
     });
 
-    $router->post('/distribution/saisie', function() use ($app) {
-        $controller = new DistributionController($app);
-        $controller->enregistrerDistribution();
-    });
-    // Besoins: saisie + enregistrement
-    $router->get('/besoins', function() use ($app) {
-        $controller = new BesoinController($app);
-        $controller->index();
+    $router->post('/save_votes', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->saveVotes();
     });
 
-    $router->post('/besoins/save', function() use ($app) {
-        $controller = new BesoinController($app);
-        $controller->save();
+    $router->post('/save_votes.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->saveVotes();
     });
 
-    // Collecte : liste
-    $router->get('/collecte', function() use ($app) {
-        $controller = new CollecteController($app);
-        $controller->listCollectes();
+    $router->get('/tableau_resultats', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->tableauResultats();
     });
 
-    // Collecte : formulaire ajout
-    $router->get('/collecte/add', function() use ($app) {
-        $controller = new CollecteController($app);
-        $controller->addCollecte();
+    $router->get('/tableau_resultats.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->tableauResultats();
     });
 
-    // Collecte : enregistrement
-    $router->post('/collecte/add', function() use ($app) {
-        $controller = new CollecteController($app);
-        $controller->enregistrerCollecte();
+    $router->get('/resultat_total', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->resultatsTotal();
     });
 
-    // Collecte : détails (API JSON)
-    $router->get('/collecte/details/@id', function($id) use ($app) {
-        $controller = new CollecteController($app);
-        $controller->getDetails((int) $id);
+    $router->get('/resultat_total.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->resultatsTotal();
     });
 
-    // Simulation de dispatch de dons
-    $router->get('/simulation', function() use ($app) {
-        $controller = new SimulationController($app);
-        $controller->index();
+    $router->get('/generate_pdf', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->generatePdf();
     });
 
-    $router->post('/simulation/executer', function() use ($app) {
-        $controller = new SimulationController($app);
-        $controller->executer();
+    $router->get('/generate_pdf.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->generatePdf();
     });
 
-    $router->post('/simulation/valider', function() use ($app) {
-        $controller = new SimulationController($app);
-        $controller->valider();
+    $router->get('/detail_candidat', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->detailCandidat();
     });
 
-    // Achats - couverture achats
-    $router->get('/achats', function() use ($app) {
-        $controller = new AchatsController($app);
-        $controller->index();
-    });
-
-    $router->post('/achats/enregistrer', function() use ($app) {
-        $controller = new AchatsController($app);
-        $controller->enregistrer();
-    });
-
-    // Récapitulation
-    $router->get('/recapitulation', function() use ($app) {
-        $controller = new RecapitulationController();
-        $controller->index();
-    });
-
-    $router->get('/recapitulation/data', function() use ($app) {
-        $controller = new RecapitulationController();
-        $controller->getData();
+    $router->get('/detail_candidat.php', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->detailCandidat();
     });
 
 }, [ SecurityHeadersMiddleware::class ]);
