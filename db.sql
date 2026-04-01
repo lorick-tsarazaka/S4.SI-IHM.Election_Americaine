@@ -8,10 +8,24 @@ CREATE TABLE etats (
     nom VARCHAR(100) NOT NULL,
     nb_grands_electeurs INT NOT NULL
 );
+
 CREATE TABLE candidats (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(100) NOT NULL,
     couleur VARCHAR(20) -- bleu / rouge
+);
+
+CREATE TABLE roles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE utilisateurs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom_utilisateur VARCHAR(100) NOT NULL UNIQUE,
+    mot_de_passe VARCHAR(255) NOT NULL,
+    role_id INT NOT NULL,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE votes (
@@ -103,6 +117,16 @@ INSERT INTO etats (nom, nb_grands_electeurs) VALUES
 INSERT INTO candidats (nom, couleur) VALUES
 ('Joe Biden', 'blue'),
 ('Donald Trump', 'red');
+
+-- ROLES ET UTILISATEURS
+INSERT INTO roles (nom) VALUES
+('admin'),
+('observateur');
+
+INSERT INTO utilisateurs (nom_utilisateur, mot_de_passe, role_id) VALUES
+('admin', '$2y$10$ZfZGh.L35NJ7rNvkAf1h4OYk4h2hPDMa8Y5vFP1nYtHsfK2K3C9QC', 1), -- admin123
+('user1', '$2y$10$T9B.xrtuAQKFGKU6p0nz.u353zBTuf8F68QVYT.1QYhe8pNfZlhMK', 2), -- user123
+('user2', '$2y$10$T9B.xrtuAQKFGKU6p0nz.u353zBTuf8F68QVYT.1QYhe8pNfZlhMK', 2); -- user123
 
 -- INITIALISATION DES VOTES (0 pour tous)
 INSERT INTO votes (etat_id, candidat_id, nombre_voix)
