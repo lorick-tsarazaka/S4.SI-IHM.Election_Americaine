@@ -57,6 +57,21 @@ CREATE TABLE historique_modifications (
     FOREIGN KEY (candidat_id) REFERENCES candidats(id)
 );
 
+CREATE TABLE historique_resultats_etat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    etat_id INT NOT NULL,
+    ancien_candidat_gagnant_id INT NULL,
+    nouveau_candidat_gagnant_id INT NULL,
+    modifie_par_utilisateur_id INT NULL,
+    modifie_par_nom_utilisateur VARCHAR(100) NULL,
+    action_type VARCHAR(30) NOT NULL DEFAULT 'update',
+    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (etat_id) REFERENCES etats(id) ON DELETE CASCADE,
+    FOREIGN KEY (ancien_candidat_gagnant_id) REFERENCES candidats(id) ON DELETE SET NULL,
+    FOREIGN KEY (nouveau_candidat_gagnant_id) REFERENCES candidats(id) ON DELETE SET NULL,
+    FOREIGN KEY (modifie_par_utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
+);
+
 
 
 -- ETATS (50 états américains + District de Columbia)

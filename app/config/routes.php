@@ -77,4 +77,19 @@ $router->group('', function(Router $router) use ($app) {
         $controller->totalElecteurs();
     });
 
+    $router->get('/audit_resultats_etat', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->auditResultatsEtat();
+    });
+
+    $router->post('/rollback_resultat_etat', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->rollbackResultatEtat();
+    });
+
+    $router->get('/export_historique_resultats_etat_csv', function() use ($app) {
+        $controller = new VotesController($app);
+        $controller->exportHistoriqueResultatsEtatCsv();
+    });
+
 }, [ SecurityHeadersMiddleware::class ]);

@@ -53,6 +53,15 @@ class VotesRepository
 
     public function updateEtatWinner(int $etatId): void
     {
+        $this->updateEtatWinnerWithAudit($etatId, null, null, 'update');
+    }
+
+    public function updateEtatWinnerWithAudit(
+        int $etatId,
+        ?int $userId,
+        ?string $username,
+        string $actionType = 'update'
+    ): void {
         $maxStmt = $this->db->prepare(
             'SELECT MAX(nombre_voix) AS max_voix
              FROM votes
@@ -91,6 +100,11 @@ class VotesRepository
             }
         }
 
+        $ancienWinnerId = $this->getEtatWinnerId($etatId);
+        if ($ancienWinnerId === $winnerId) {
+            return;
+        }
+
         $checkStmt = $this->db->prepare('SELECT id FROM resultats_etat WHERE etat_id = ?');
         $checkStmt->execute([$etatId]);
         $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
@@ -102,6 +116,56 @@ class VotesRepository
             $insertStmt = $this->db->prepare('INSERT INTO resultats_etat (etat_id, candidat_gagnant_id) VALUES (?, ?)');
             $insertStmt->execute([$etatId, $winnerId]);
         }
+
+        $this->addHistoriqueResultatEtat(
+            $etatId,
+            $ancienWinnerId,
+            $winnerId,
+            $userId,
+            $username,
+            $actionType
+        );
+    }
+
+    private function getEtatWinnerId(int $etatId): ?int
+    {
+        $stmt = $this->db->prepare('SELECT candidat_gagnant_id FROM resultats_etat WHERE etat_id = ? LIMIT 1');
+        $stmt->execute([$etatId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row === false || $row['candidat_gagnant_id'] === null) {
+            return null;
+        }
+
+        return (int) $row['candidat_gagnant_id'];
+    }
+
+    public function addHistoriqueResultatEtat(
+        int $etatId,
+        ?int $ancienCandidatId,
+        ?int $nouveauCandidatId,
+        ?int $userId,
+        ?string $username,
+        string $actionType = 'update'
+    ): void {
+        $stmt = $this->db->prepare(
+            'INSERT INTO historique_resultats_etat (
+                etat_id,
+                ancien_candidat_gagnant_id,
+                nouveau_candidat_gagnant_id,
+                modifie_par_utilisateur_id,
+                modifie_par_nom_utilisateur,
+                action_type
+            ) VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $etatId,
+            $ancienCandidatId,
+            $nouveauCandidatId,
+            $userId,
+            $username,
+            $actionType,
+        ]);
     }
 
     public function addHistoriqueModification(
@@ -333,10 +397,114 @@ class VotesRepository
         $etats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($etats as $etat) {
-            $this->updateEtatWinner((int) $etat['id']);
+            $this->updateEtatWinnerWithAudit((int) $etat['id'], null, null, 'recalcul');
         }
 
         return count($etats);
+    }
+
+    public function getHistoriqueResultatsEtat(?int $etatId = null): array
+    {
+        if ($etatId !== null && $etatId > 0) {
+            $stmt = $this->db->prepare(
+                'SELECT
+                    h.id,
+                    h.etat_id,
+                    e.nom AS etat_nom,
+                    h.ancien_candidat_gagnant_id,
+                    h.nouveau_candidat_gagnant_id,
+                    ca.nom AS ancien_candidat_nom,
+                    cn.nom AS nouveau_candidat_nom,
+                    h.modifie_par_utilisateur_id,
+                    h.modifie_par_nom_utilisateur,
+                    h.action_type,
+                    h.date_modification
+                FROM historique_resultats_etat h
+                INNER JOIN etats e ON e.id = h.etat_id
+                LEFT JOIN candidats ca ON ca.id = h.ancien_candidat_gagnant_id
+                LEFT JOIN candidats cn ON cn.id = h.nouveau_candidat_gagnant_id
+                WHERE h.etat_id = ?
+                ORDER BY h.date_modification DESC, h.id DESC'
+            );
+            $stmt->execute([$etatId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        $stmt = $this->db->query(
+            'SELECT
+                h.id,
+                h.etat_id,
+                e.nom AS etat_nom,
+                h.ancien_candidat_gagnant_id,
+                h.nouveau_candidat_gagnant_id,
+                ca.nom AS ancien_candidat_nom,
+                cn.nom AS nouveau_candidat_nom,
+                h.modifie_par_utilisateur_id,
+                h.modifie_par_nom_utilisateur,
+                h.action_type,
+                h.date_modification
+            FROM historique_resultats_etat h
+            INNER JOIN etats e ON e.id = h.etat_id
+            LEFT JOIN candidats ca ON ca.id = h.ancien_candidat_gagnant_id
+            LEFT JOIN candidats cn ON cn.id = h.nouveau_candidat_gagnant_id
+            ORDER BY h.date_modification DESC, h.id DESC'
+        );
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getHistoriqueResultatEtatById(int $historiqueId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id, etat_id, ancien_candidat_gagnant_id, nouveau_candidat_gagnant_id
+             FROM historique_resultats_etat
+             WHERE id = ?
+             LIMIT 1'
+        );
+        $stmt->execute([$historiqueId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row === false ? null : $row;
+    }
+
+    public function rollbackHistoriqueResultatEtat(int $historiqueId, int $userId, string $username): bool
+    {
+        $historique = $this->getHistoriqueResultatEtatById($historiqueId);
+        if ($historique === null) {
+            return false;
+        }
+
+        $etatId = (int) $historique['etat_id'];
+        $winnerActuel = $this->getEtatWinnerId($etatId);
+        $winnerRollback = $historique['ancien_candidat_gagnant_id'] !== null
+            ? (int) $historique['ancien_candidat_gagnant_id']
+            : null;
+
+        if ($winnerActuel === $winnerRollback) {
+            return true;
+        }
+
+        $existsStmt = $this->db->prepare('SELECT id FROM resultats_etat WHERE etat_id = ? LIMIT 1');
+        $existsStmt->execute([$etatId]);
+        $exists = $existsStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($exists !== false) {
+            $updateStmt = $this->db->prepare('UPDATE resultats_etat SET candidat_gagnant_id = ? WHERE etat_id = ?');
+            $updateStmt->execute([$winnerRollback, $etatId]);
+        } else {
+            $insertStmt = $this->db->prepare('INSERT INTO resultats_etat (etat_id, candidat_gagnant_id) VALUES (?, ?)');
+            $insertStmt->execute([$etatId, $winnerRollback]);
+        }
+
+        $this->addHistoriqueResultatEtat(
+            $etatId,
+            $winnerActuel,
+            $winnerRollback,
+            $userId,
+            $username,
+            'rollback'
+        );
+
+        return true;
     }
 
     public function getTotalElecteursParCandidat(): array
