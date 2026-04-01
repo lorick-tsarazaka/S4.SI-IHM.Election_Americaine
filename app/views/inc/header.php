@@ -1,6 +1,7 @@
 <?php
     // Ensure $base is available even if BASE_URL is not defined
     $base = defined('BASE_URL') ? BASE_URL : '';
+    $currentPage = $pageTitle ?? ($page_title ?? '');
     include ("doctype.php");
 ?>
 <body>
@@ -23,8 +24,23 @@
             <div class="collapse navbar-collapse" id="navbarMain">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link text-dark px-3 <?= ($page_title ?? '') === 'Tableau de bord' ? 'active' : '' ?>" href="<?= $base ?>/">
+                        <a class="nav-link text-dark px-3 <?= $currentPage === 'Tableau de bord' ? 'active' : '' ?>" href="<?= $base ?>/">
                             <i class="bi bi-speedometer2 me-1"></i> Tableau de bord
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark px-3 <?= $currentPage === 'Saisie des votes' ? 'active' : '' ?>" href="<?= $base ?>/saisie_votes">
+                            <i class="bi bi-pencil-square me-1"></i> Saisie votes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark px-3 <?= $currentPage === 'Tableau des resultats' ? 'active' : '' ?>" href="<?= $base ?>/tableau_resultats">
+                            <i class="bi bi-table me-1"></i> Resultats
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark px-3" href="<?= $base ?>/generate_pdf">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
                         </a>
                     </li>
                 </ul>

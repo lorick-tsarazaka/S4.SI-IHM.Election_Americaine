@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BNGRC - Application de suivi des collectes et distributions de dons pour les sinistrés">
     <meta name="theme-color" content="#2563eb">
-    <title><?= isset($pageTitle) ? htmlspecialchars($pageTitle) . ' - ' : '' ?>Projet-Election Americaine</title>
+    <title><?= isset($pageTitle) ? htmlspecialchars($pageTitle) . ' - ' : '' ?>Election Americaine</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="<?= $base ?>/favicon.svg">
