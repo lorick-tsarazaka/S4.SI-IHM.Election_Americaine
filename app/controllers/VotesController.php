@@ -18,8 +18,37 @@ class VotesController
         $this->votesRepository = new VotesRepository($app->db());
     }
 
+    private function requireAuthenticated(): bool
+    {
+        if (!isset($_SESSION['utilisateur'])) {
+            Flight::redirect('/login.php?message=Veuillez+vous+connecter');
+            return false;
+        }
+
+        return true;
+    }
+
+    private function requireRole(string $role): bool
+    {
+        if (!$this->requireAuthenticated()) {
+            return false;
+        }
+
+        $currentRole = (string) ($_SESSION['utilisateur']['role'] ?? '');
+        if ($currentRole !== $role) {
+            Flight::redirect('/tableau_resultats.php?message=Acces+refuse');
+            return false;
+        }
+
+        return true;
+    }
+
     public function saisieVotes(): void
     {
+        if (!$this->requireRole('admin')) {
+            return;
+        }
+
         $etats = $this->votesRepository->getEtats();
         $candidats = $this->votesRepository->getCandidats();
 
@@ -33,6 +62,10 @@ class VotesController
 
     public function saveVotes(): void
     {
+        if (!$this->requireRole('admin')) {
+            return;
+        }
+
         $request = Flight::request();
 
         $etatId = (int) ($request->data->etat_id ?? 0);
@@ -88,6 +121,10 @@ class VotesController
 
     public function tableauResultats(): void
     {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
         $candidats = $this->votesRepository->getCandidats();
         $votesAvecPourcentage = $this->votesRepository->getVotesAvecPourcentage();
         $resultsAvecGrandsElecteurs = $this->votesRepository->getResultatsAvecGrandsElecteurs();
@@ -132,6 +169,10 @@ class VotesController
 
     public function resultatsTotal(): void
     {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
         $resultatsTotal = $this->votesRepository->getResultatsTotal();
 
         Flight::render('resultat_total', [
@@ -142,6 +183,10 @@ class VotesController
 
     public function generatePdf(): void
     {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
         $resultatsTotal = $this->votesRepository->getResultatsTotal();
 
         Flight::render('generate_pdf', [
@@ -151,6 +196,10 @@ class VotesController
 
     public function detailCandidat(): void
     {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
         $candidatId = (int) Flight::request()->query->candidat ?? 0;
 
         if ($candidatId <= 0) {
@@ -169,6 +218,63 @@ class VotesController
         Flight::render('detail_candidat', [
             'candidat' => $candidat,
             'resultatsParticulier' => $resultatsParticulier,
+            'csp_nonce' => Flight::get('csp_nonce'),
+        ]);
+    }
+
+    public function carte(): void
+    {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
+        $etats = $this->votesRepository->getEtatsAvecGagnantPourCarte();
+        $candidats = $this->votesRepository->getCandidats();
+
+        Flight::render('carte', [
+            'etats' => $etats,
+            'candidats' => $candidats,
+            'csp_nonce' => Flight::get('csp_nonce'),
+        ]);
+    }
+
+    public function detailEtat(): void
+    {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
+        $etatId = (int) (Flight::request()->query->etat ?? 0);
+        if ($etatId <= 0) {
+            Flight::redirect('/carte');
+            return;
+        }
+
+        $etat = $this->votesRepository->getEtatById($etatId);
+        if ($etat === null) {
+            Flight::notFound();
+            return;
+        }
+
+        $votesEtat = $this->votesRepository->getDetailVotesEtat($etatId);
+
+        Flight::render('detail_etat', [
+            'etat' => $etat,
+            'votesEtat' => $votesEtat,
+            'csp_nonce' => Flight::get('csp_nonce'),
+        ]);
+    }
+
+    public function totalElecteurs(): void
+    {
+        if (!$this->requireAuthenticated()) {
+            return;
+        }
+
+        $totaux = $this->votesRepository->getTotalElecteursParCandidat();
+
+        Flight::render('total_electeurs', [
+            'totaux' => $totaux,
             'csp_nonce' => Flight::get('csp_nonce'),
         ]);
     }

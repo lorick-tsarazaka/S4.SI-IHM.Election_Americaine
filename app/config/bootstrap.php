@@ -7,6 +7,9 @@
 	}
 
 	$app = Flight::app();
+	if (session_status() === PHP_SESSION_NONE) {
+		session_start();
+	}
 	$config = require('config.php');
 
 	require('services.php');
